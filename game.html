@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Impulse Bus Rush</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: 'Poppins', sans-serif;
+    text-align: center;
+    color: white;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    touch-action: manipulation;
+    background: #001d3d;
+  }
+  
+  #startScreen {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background: #001d3d;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+  }
+  
+  #startScreen h1 {
+    font-size: 48px;
+    margin: 20px 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+  }
+  
+  #startScreen img {
+    width: 140px;
+    height: auto;
+    margin-bottom: 20px;
+  }
+  
+  button {
+    padding: 14px 30px;
+    font-size: 20px;
+    font-weight: bold;
+    background: #00b4ff;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.2s;
+  }
+  
+  button:hover {
+    background: #0088cc;
+  }
+  
+  button:active {
+    transform: scale(0.98);
+  }
+  
+  canvas {
+    display: block;
+    background: #001d3d;
+  }
+  
+  #controls {
+    display: none;
+    position: fixed;
+    bottom: 30px;
+    width: 100%;
+    justify-content: center;
+    gap: 50px;
+    z-index: 5;
+  }
+  
+  .btn {
+    width: 70px;
+    height: 70px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid white;
+    border-radius: 50%;
+    font-size: 26px;
+    color: white;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.1s;
+  }
+  
+  .btn:active {
+    background: rgba(0, 180, 255, 0.6);
+    transform: scale(0.95);
+  }
+  
+  #gameOverText {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.9);
+    padding: 40px;
+    border-radius: 15px;
+    text-align: center;
+    z-index: 15;
+  }
+  
+  #gameOverText h2 {
+    font-size: 48px;
+    color: #ff4444;
+    margin: 0 0 20px 0;
+  }
+  
+  #gameOverText p {
+    font-size: 28px;
+    color: white;
+    margin: 10px 0;
+  }
+  
+  #gameOverText button {
+    margin-top: 20px;
+  }
+  
+  #winScreen {
+    display: none;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    background: rgba(0, 0, 0, 0.8);
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+  }
+  
+  #winScreen img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.3;
+  }
+  
+  #winContent {
+    position: relative;
+    z-index: 21;
+    text-align: center;
+  }
+  
+  #winContent h2 {
+    font-size: 48px;
+    margin: 20px 0;
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+  }
+  
+  #winContent p {
+    font-size: 28px;
+    margin: 20px 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+  }
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+  <img src="logo.png" alt="College Logo">
+  <h1>🚌 Impulse Bus Rush 🚌</h1>
+  <p style="font-size: 18px; margin-bottom: 30px;">Avoid obstacles and reach college!</p>
+  <button onclick="startGame()">Start Game</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="controls">
+  <button class="btn" id="upBtn">↑</button>
+  <button class="btn" id="downBtn">↓</button>
+</div>
+
+<div id="gameOverText">
+  <h2>💥 GAME OVER! 💥</h2>
+  <p>You hit an obstacle!</p>
+  <p id="finalScoreText">Score: 0</p>
+  <button onclick="location.reload()">Play Again</button>
+</div>
+
+<div id="winScreen">
+  <img src="sports.jpg" alt="Victory Background">
+  <div id="winContent">
+    <h2>🎉 You reached college on time! 🎉</h2>
+    <p>Final Score: <span id="finalScore">0</span></p>
+    <button onclick="location.reload()">Play Again</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const controls = document.getElementById("controls");
+const gameOverText = document.getElementById("gameOverText");
+
+// Game state
+const player = {
+  x: 50,
+  y: 0,
+  width: 80,
+  height: 80,
+  velocityY: 0,
+  speed: 5
+};
+
+let gameActive = false;
+let score = 0;
+let distance = 0;
+let obstacles = [];
+let invulnerableTime = 0;
+const INVULNERABLE_DURATION = 2000; // 2 seconds of grace period
+
+// Asset loading
+const assets = {
+  bus: new Image(),
+  bg: new Image(),
+  logo: new Image(),
+  sports: new Image(),
+  book: new Image()
+};
+
+let assetsLoaded = 0;
+const totalAssets = Object.keys(assets).length;
+
+// Load all assets
+assets.bus.src = 'bus.png';
+assets.bg.src = 'classroom.jpg';
+assets.logo.src = 'logo.png';
+assets.sports.src = 'sports.jpg';
+assets.book.src = 'book.jpg';
+
+Object.values(assets).forEach(img => {
+  img.onload = () => {
+    assetsLoaded++;
+    if (assetsLoaded === totalAssets) {
+      const startBtn = document.querySelector('#startScreen button');
+      startBtn.disabled = false;
+      startBtn.textContent = 'Start Game';
+    }
+  };
+  img.onerror = () => {
+    assetsLoaded++;
+    if (assetsLoaded === totalAssets) {
+      const startBtn = document.querySelector('#startScreen button');
+      startBtn.disabled = false;
+      startBtn.textContent = 'Start Game (warning: some images failed to load)';
+    }
+  };
+});
+
+function startGame() {
+  document.getElementById("startScreen").style.display = "none";
+  gameOverText.style.display = "none";
+  controls.style.display = "flex";
+  
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  
+  // Reset game state
+  player.x = 50;
+  player.y = canvas.height - player.height - 20;
+  player.velocityY = 0;
+  gameActive = true;
+  score = 0;
+  distance = 0;
+  obstacles = [];
+  invulnerableTime = performance.now() + INVULNERABLE_DURATION;
+  
+  gameLoop();
+}
+
+function update() {
+  if (!gameActive) return;
+  
+  // Update player position
+  player.velocityY = Math.max(-8, Math.min(8, player.velocityY));
+  player.y += player.velocityY;
+  
+  // Keep player in bounds
+  if (player.y < 0) player.y = 0;
+  if (player.y + player.height > canvas.height) {
+    player.y = canvas.height - player.height;
+  }
+  
+  // Update distance and score
+  distance += 2;
+  score = Math.floor(distance / 10);
+  
+  // Spawn obstacles with controlled spacing
+  if (Math.random() < 0.015 && obstacles.length < 3) {
+    obstacles.push({
+      x: canvas.width + 50,
+      y: Math.random() * Math.max(0, canvas.height - 80),
+      width: 60 + Math.random() * 40,
+      height: 60 + Math.random() * 40,
+      speed: 4 + Math.random() * 2
+    });
+  }
+  
+  // Update obstacles
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    obstacles[i].x -= obstacles[i].speed;
+    
+    // Remove off-screen obstacles
+    if (obstacles[i].x + obstacles[i].width < 0) {
+      obstacles.splice(i, 1);
+      continue;
+    }
+    
+    // Check collision (only if not invulnerable)
+    if (performance.now() > invulnerableTime) {
+      if (checkCollision(player, obstacles[i])) {
+        endGame();
+        return;
+      }
+    }
+  }
+}
+
+function checkCollision(player, obstacle) {
+  // Simple AABB collision detection with padding for fairness
+  const padding = 10;
+  return (
+    player.x + padding < obstacle.x + obstacle.width &&
+    player.x + player.width - padding > obstacle.x &&
+    player.y + padding < obstacle.y + obstacle.height &&
+    player.y + player.height - padding > obstacle.y
+  );
+}
+
+function draw() {
+  // Draw background
+  if (assets.bg.complete) {
+    ctx.drawImage(assets.bg, 0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.fillStyle = '#001d3d';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  
+  // Draw obstacles
+  for (let obs of obstacles) {
+    if (assets.book.complete) {
+      ctx.drawImage(assets.book, obs.x, obs.y, obs.width, obs.height);
+    } else {
+      ctx.fillStyle = '#ff6b6b';
+      ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+      ctx.strokeStyle = '#ff0000';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+    }
+  }
+  
+  // Draw player with invulnerability flash
+  const isInvulnerable = performance.now() < invulnerableTime;
+  if (isInvulnerable) {
+    const flash = (Math.floor(performance.now() / 100) % 2) === 0;
+    ctx.globalAlpha = flash ? 0.5 : 1.0;
+  }
+  
+  if (assets.bus.complete) {
+    ctx.drawImage(assets.bus, player.x, player.y, player.width, player.height);
+  } else {
+    ctx.fillStyle = '#ffcc00';
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(player.x, player.y, player.width, player.height);
+  }
+  
+  ctx.globalAlpha = 1.0;
+  
+  // Draw score and invulnerability indicator
+  ctx.fillStyle = 'white';
+  ctx.font = 'bold 24px Poppins';
+  ctx.textAlign = 'left';
+  ctx.fillText('Score: ' + score, 20, 40);
+  
+  if (isInvulnerable) {
+    ctx.fillStyle = '#00ff00';
+    ctx.fillText('⭐ Invulnerable', 20, 80);
+  }
+}
+
+function endGame() {
+  gameActive = false;
+  gameOverText.style.display = 'block';
+  document.getElementById('finalScoreText').textContent = 'Score: ' + score;
+  controls.style.display = 'none';
+}
+
+function gameLoop() {
+  update();
+  draw();
+  
+  if (gameActive) {
+    requestAnimationFrame(gameLoop);
+  }
+}
+
+// Handle window resize
+window.addEventListener('resize', () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+
+// Mobile controls
+const upBtn = document.getElementById('upBtn');
+const downBtn = document.getElementById('downBtn');
+
+if (upBtn) {
+  upBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    player.velocityY = -6;
+  }, { passive: false });
+  
+  upBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    player.velocityY = 0;
+  }, { passive: false });
+  
+  upBtn.addEventListener('mousedown', () => {
+    player.velocityY = -6;
+  });
+  
+  upBtn.addEventListener('mouseup', () => {
+    player.velocityY = 0;
+  });
+}
+
+if (downBtn) {
+  downBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    player.velocityY = 6;
+  }, { passive: false });
+  
+  downBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    player.velocityY = 0;
+  }, { passive: false });
+  
+  downBtn.addEventListener('mousedown', () => {
+    player.velocityY = 6;
+  });
+  
+  downBtn.addEventListener('mouseup', () => {
+    player.velocityY = 0;
+  });
+}
+
+// Keyboard controls
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowUp') {
+    player.velocityY = -6;
+    e.preventDefault();
+  }
+  if (e.key === 'ArrowDown') {
+    player.velocityY = 6;
+    e.preventDefault();
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    player.velocityY = 0;
+    e.preventDefault();
+  }
+});
+
+// Prevent scrolling
+document.addEventListener('touchmove', (e) => {
+  if (e.target === canvas) e.preventDefault();
+}, { passive: false });
+
+</script>
+
+</body>
+</html>
